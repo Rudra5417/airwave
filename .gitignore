@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# local test harnesses (generated, never committed)
+test.html
+test2.html
+*.local.html
+
+# editor
+.vscode/
+.idea/
+*.swp
