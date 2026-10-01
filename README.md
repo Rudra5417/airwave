@@ -178,3 +178,7 @@ Full comparison with sources: [docs/sensors.md](docs/sensors.md).
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+Contributions are accepted under the MIT terms **plus a relicensing clause**, so the
+project's license stays changeable if a hardware product ever needs different terms.
+See [CONTRIBUTING.md](CONTRIBUTING.md#license).

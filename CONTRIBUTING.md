@@ -58,4 +58,15 @@ the five stages is not actionable.
 
 ## License
 
-By contributing you agree your work is released under the [MIT License](LICENSE).
+By contributing you agree that your work is released under the [MIT License](LICENSE),
+**and** that the maintainer may relicense the project — including your contribution —
+under any other license in the future.
+
+That second clause is deliberate, and worth understanding before you contribute. Without
+it, a single merged pull request would permanently freeze the project's license: the
+maintainer would hold a *licence* to use your code but would not *own* it, and could never
+relicense the combined work. With it, the option stays open — for example if a hardware
+product ever needs different terms for the firmware.
+
+**You keep the copyright to your own contribution.** This grants no ownership of your
+work, only the right to relicense it.
