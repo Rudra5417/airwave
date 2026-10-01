@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AIRWAVE — a hand-tracked air instrument</title>
-<meta name="description" content="Play music in mid-air. Webcam hand tracking drives a scale-locked synthesizer. No build step, no install.">
+<title>AIRWAVE — a two-handed air instrument</title>
+<meta name="description" content="Play electronic dance music in mid-air. Two hands: one plays harmony, one drops the beat. Webcam hand tracking, no build step, no install.">
 <style>
   :root{
     --bg:#06070d;
@@ -12,6 +12,7 @@
     --edge:rgba(140,160,200,.14);
     --cyan:#2dd4f7;
     --violet:#8b5cf6;
+    --pink:#f472b6;
     --text:#e8ecf4;
     --muted:#6b7689;
     --good:#3ddc97;
@@ -31,19 +32,27 @@
   #cam{
     position:absolute;inset:0;width:100%;height:100%;
     object-fit:cover;transform:scaleX(-1);
-    opacity:.30;filter:saturate(.35) contrast(1.05);
+    opacity:.26;filter:saturate(.35) contrast(1.05) brightness(.8);
   }
   #vignette{
     position:absolute;inset:0;pointer-events:none;
     background:
-      radial-gradient(120% 90% at 50% 45%, transparent 30%, rgba(6,7,13,.75) 78%, var(--bg) 100%),
-      linear-gradient(180deg, rgba(6,7,13,.55) 0%, transparent 22%, transparent 68%, rgba(6,7,13,.8) 100%);
+      radial-gradient(120% 90% at 50% 45%, transparent 26%, rgba(6,7,13,.78) 76%, var(--bg) 100%),
+      linear-gradient(180deg, rgba(6,7,13,.6) 0%, transparent 20%, transparent 66%, rgba(6,7,13,.85) 100%);
   }
   #overlay{position:absolute;inset:0;width:100%;height:100%}
 
   /* ---------- hud ---------- */
   .hud{position:absolute;pointer-events:none;z-index:5}
   .hud.interactive{pointer-events:auto}
+  .panel{
+    background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+    padding:11px 13px;backdrop-filter:blur(10px);
+  }
+  .panel h2,.panel h3{
+    margin:0 0 8px;font-size:9.5px;font-weight:600;letter-spacing:.17em;
+    color:var(--muted);text-transform:uppercase;
+  }
 
   #title{top:22px;left:26px}
   #title h1{
@@ -52,43 +61,52 @@
     -webkit-background-clip:text;background-clip:text;color:transparent;
   }
   #title p{margin:3px 0 0;color:var(--muted);font-size:11.5px;letter-spacing:.05em}
+  #title .hands{margin-top:7px;display:flex;gap:14px;font:10.5px/1 ui-monospace,Menlo,monospace}
+  #title .hands i{font-style:normal;letter-spacing:.06em}
+  #title .hands .l{color:var(--cyan)}
+  #title .hands .r{color:var(--pink)}
 
   /* note readout */
   #noteWrap{
-    left:0;right:0;top:50%;transform:translateY(-50%);
+    left:0;right:0;top:47%;transform:translateY(-50%);
     display:flex;flex-direction:column;align-items:center;gap:2px;
   }
   #noteName{
-    font-size:clamp(52px,11vw,116px);font-weight:700;letter-spacing:-.02em;line-height:1;
+    font-size:clamp(46px,9vw,96px);font-weight:700;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;
     text-shadow:0 0 42px rgba(45,212,247,.30);
-    transition:color .12s ease;
   }
-  #noteHz{font:11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);letter-spacing:.08em}
-  #noteName.idle{color:var(--muted);opacity:.42;text-shadow:none}
+  #noteSub{font:11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);letter-spacing:.08em}
+  #noteName.idle{color:var(--muted);opacity:.4;text-shadow:none}
 
   /* pitch ladder */
   #ladder{
-    left:50%;transform:translateX(-50%);bottom:26px;
-    display:flex;align-items:flex-end;gap:5px;height:74px;
+    left:26px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column-reverse;gap:4px;align-items:flex-start;
   }
   .rung{
-    width:13px;border-radius:3px 3px 2px 2px;
-    background:rgba(140,160,200,.16);
-    transition:background .1s ease,box-shadow .1s ease,height .1s ease;
+    width:5px;border-radius:2px;background:rgba(140,160,200,.18);
+    transition:background .08s ease,box-shadow .08s ease,width .08s ease;
   }
-  .rung.on{background:var(--cyan);box-shadow:0 0 18px rgba(45,212,247,.7)}
   .rung.tonic{background:rgba(139,92,246,.42)}
+  .rung.on{background:var(--cyan);box-shadow:0 0 14px rgba(45,212,247,.75);width:24px}
+
+  /* step sequencer */
+  #steps{
+    left:50%;transform:translateX(-50%);bottom:26px;
+    display:flex;gap:5px;align-items:center;
+  }
+  .step{
+    width:14px;height:14px;border-radius:3px;
+    background:rgba(140,160,200,.13);
+    transition:background .05s linear,transform .05s linear;
+  }
+  .step.beat{background:rgba(140,160,200,.26)}
+  .step.on{background:var(--cyan);transform:scale(1.32);box-shadow:0 0 14px rgba(45,212,247,.7)}
 
   /* stats */
   #stats{
-    top:22px;right:26px;min-width:210px;
-    background:var(--panel);border:1px solid var(--edge);border-radius:11px;
-    padding:11px 13px;backdrop-filter:blur(9px);
-  }
-  #stats h2{
-    margin:0 0 8px;font-size:9.5px;font-weight:600;letter-spacing:.17em;
-    color:var(--muted);text-transform:uppercase;
+    top:22px;right:26px;min-width:212px;
   }
   .row{display:flex;justify-content:space-between;gap:14px;font:11.5px/1.85 ui-monospace,SFMono-Regular,Menlo,monospace}
   .row span:first-child{color:var(--muted)}
@@ -104,14 +122,6 @@
     bottom:26px;right:26px;display:flex;flex-direction:column;gap:9px;
     align-items:flex-end;
   }
-  .group{
-    background:var(--panel);border:1px solid var(--edge);border-radius:11px;
-    padding:9px 11px;backdrop-filter:blur(9px);
-  }
-  .group h3{
-    margin:0 0 7px;font-size:9.5px;font-weight:600;letter-spacing:.17em;
-    color:var(--muted);text-transform:uppercase;
-  }
   .btns{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
   button{
     font:11.5px/1 ui-sans-serif,system-ui,sans-serif;color:var(--text);
@@ -123,18 +133,22 @@
     background:linear-gradient(92deg,rgba(45,212,247,.20),rgba(139,92,246,.20));
     border-color:rgba(45,212,247,.5);color:#fff;
   }
-  .slider{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted)}
-  input[type=range]{width:108px;accent-color:var(--cyan)}
+  .slider{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted);margin-top:8px}
+  input[type=range]{width:100px;accent-color:var(--cyan)}
+  .slider b{color:var(--cyan);font:600 11px ui-monospace,Menlo,monospace;min-width:30px;text-align:right}
 
-  /* volume meter */
-  #meter{
-    left:26px;bottom:26px;width:172px;
-    background:var(--panel);border:1px solid var(--edge);border-radius:11px;
-    padding:11px 13px;backdrop-filter:blur(9px);
+  /* drop meter */
+  #drop{
+    left:26px;bottom:26px;width:180px;
   }
-  #meterBar{height:7px;border-radius:4px;background:rgba(140,160,200,.15);overflow:hidden;margin-top:7px}
-  #meterFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .05s linear}
-  #meterRow{display:flex;justify-content:space-between;font:10.5px/1 ui-monospace,Menlo,monospace;color:var(--muted)}
+  #dropBar{height:8px;border-radius:4px;background:rgba(140,160,200,.15);overflow:hidden;margin-top:7px}
+  #dropFill{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,var(--cyan),var(--violet) 55%,var(--pink));
+    transition:width .06s linear;
+  }
+  #dropRow{display:flex;justify-content:space-between;font:10.5px/1 ui-monospace,Menlo,monospace;color:var(--muted)}
+  #dropLayer{color:var(--pink)}
 
   /* overlay states */
   #veil{
@@ -143,13 +157,19 @@
     backdrop-filter:blur(4px);padding:30px;text-align:center;
   }
   #veil.show{display:flex}
-  #veil .card{max-width:520px}
+  #veil .card{max-width:560px}
   #veil h2{margin:0 0 12px;font-size:19px;font-weight:600}
   #veil p{margin:0 0 10px;color:var(--muted);font-size:13.5px;line-height:1.6}
-  #veil code{
-    font:12px ui-monospace,Menlo,monospace;background:rgba(140,160,200,.12);
-    padding:2px 6px;border-radius:5px;color:var(--text)
+  #veil .legend{
+    display:flex;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap;
+    font:11px/1.5 ui-monospace,Menlo,monospace;color:var(--muted);
   }
+  #veil .legend div{
+    border:1px solid var(--edge);border-radius:8px;padding:9px 12px;text-align:left;min-width:170px;
+  }
+  #veil .legend b{display:block;margin-bottom:3px;font-weight:600}
+  #veil .legend .l b{color:var(--cyan)}
+  #veil .legend .r b{color:var(--pink)}
   #veil .err{color:var(--bad);font:12px/1.5 ui-monospace,Menlo,monospace;
     background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.25);
     border-radius:8px;padding:10px;margin-top:14px;text-align:left;word-break:break-word}
@@ -161,13 +181,14 @@
   }
   @keyframes sp{to{transform:rotate(360deg)}}
 
-  @media (max-width:820px){
+  @media (max-width:900px){
     #stats{display:none}
-    #meter{width:132px;padding:9px 11px}
+    #ladder{display:none}
+    #drop{width:132px;padding:9px 11px}
     #controls{bottom:auto;top:74px;right:16px}
     #title{left:16px;top:16px}
-    #ladder{bottom:16px;gap:3px;height:56px}
-    .rung{width:9px}
+    #steps{bottom:16px;gap:3px}
+    .step{width:9px;height:9px}
   }
 </style>
 </head>
@@ -180,20 +201,26 @@
 
   <div class="hud" id="title">
     <h1>AIRWAVE</h1>
-    <p>hand-tracked air instrument · scale-locked</p>
-  </div>
-
-  <div class="hud" id="noteWrap">
-    <div id="noteName" class="idle">—</div>
-    <div id="noteHz">no hand detected</div>
+    <p>two-handed air instrument · 124 BPM</p>
+    <div class="hands">
+      <i class="l">LEFT · harmony</i>
+      <i class="r">RIGHT · drop</i>
+    </div>
   </div>
 
   <div class="hud" id="ladder"></div>
 
+  <div class="hud" id="noteWrap">
+    <div id="noteName" class="idle">—</div>
+    <div id="noteSub">raise your left hand</div>
+  </div>
+
+  <div class="hud" id="steps"></div>
+
   <div class="hud" id="stats">
     <h2>Latency budget</h2>
-    <div class="row"><span>inference</span><span id="sInf">—</span></div>
     <div class="row"><span>capture (½ frame)</span><span id="sCap">—</span></div>
+    <div class="row"><span>inference</span><span id="sInf">—</span></div>
     <div class="row"><span>audio buffer</span><span id="sBuf">—</span></div>
     <div class="row"><span>audio output</span><span id="sOut">—</span></div>
     <div class="row"><span>est. end-to-end</span><span id="sTotal">—</span></div>
@@ -202,25 +229,24 @@
   </div>
 
   <div class="hud interactive" id="controls">
-    <div class="group">
+    <div class="panel">
       <h3>Scale</h3>
       <div class="btns" id="scaleBtns"></div>
     </div>
-    <div class="group">
+    <div class="panel">
       <h3>Feel</h3>
       <div class="btns">
-        <button id="bGlide" aria-pressed="true">glide</button>
         <button id="bSound" aria-pressed="true">sound</button>
+        <button id="bPump" aria-pressed="true">pump</button>
       </div>
-      <div class="slider" style="margin-top:9px">
-        <span>smooth</span><input id="rSmooth" type="range" min="0" max="100" value="42">
-      </div>
+      <div class="slider"><span>tempo</span><input id="rBpm" type="range" min="110" max="140" value="124"><b id="bpmVal">124</b></div>
+      <div class="slider"><span>smooth</span><input id="rSmooth" type="range" min="0" max="100" value="42"><b></b></div>
     </div>
   </div>
 
-  <div class="hud" id="meter">
-    <div id="meterRow"><span>LEVEL</span><span id="meterVal">0%</span></div>
-    <div id="meterBar"><div id="meterFill"></div></div>
+  <div class="hud" id="drop">
+    <div id="dropRow"><span>DROP</span><span id="dropLayer">kick</span></div>
+    <div id="dropBar"><div id="dropFill"></div></div>
   </div>
 </div>
 
@@ -229,6 +255,10 @@
     <div class="spin" id="spin"></div>
     <h2 id="veilTitle">Starting AIRWAVE</h2>
     <p id="veilBody">Loading the hand-tracking model and asking for camera access.</p>
+    <div class="legend">
+      <div class="l"><b>LEFT HAND</b>height picks the note.<br>It drives the bass and the melody.</div>
+      <div class="r"><b>RIGHT HAND</b>height is the drop.<br>Raise it to bring the track in.</div>
+    </div>
     <div class="err" id="veilErr" style="display:none"></div>
     <button id="veilBtn" style="display:none">Retry</button>
   </div>
@@ -236,80 +266,89 @@
 
 <script type="module">
 /* ============================================================================
-   AIRWAVE — a hand-tracked air instrument
-   ----------------------------------------------------------------------------
-   Webcam -> MediaPipe Hands (21 landmarks) -> One Euro smoothing -> scale
-   quantizer -> Web Audio synth.
+   AIRWAVE — a two-handed air instrument for electronic dance music.
 
-   Design notes:
-   - Camera, not mmWave radar. Consumer radar trackers refresh at ~10 Hz
-     (100 ms), which is 5-10x too slow for a playable instrument. MediaPipe
-     runs 18-32 ms end-to-end on a laptop. See docs/sensors.md.
-   - Scale quantisation is not just beginner assistance; it also hides
-     residual tracker jitter. Free pitch exposes every flaw in the signal.
-   - One Euro filter, not an EMA: it adapts its cutoff to hand speed, so slow
-     gestures are smooth and fast gestures stay responsive.
+   The machine keeps time; your hands decide what it plays.
+
+     LEFT  hand -> harmony. Height picks a note on the scale, and that note
+                   drives both the bass root and the melodic line.
+     RIGHT hand -> energy macro. Height is the drop: it brings the track in
+                   one layer at a time (kick > hats > clap+bass > stabs > arp
+                   > supersaw lead). Finger spread opens the filter.
+
+   Timing comes from the audio clock via a lookahead scheduler, never from
+   requestAnimationFrame. That is the whole difference between a drum machine
+   and a bag of noise: a dropped frame must not move the beat.
+
+   Hand input is quantised in TIME as well as pitch. Moving your hand does not
+   retune a sounding note; it arms the note for the next step boundary. That
+   is what makes waving sound like music instead of a siren.
    ============================================================================ */
 
 // ---------------------------------------------------------------- config ----
 const CFG = {
-  baseMidi: 48,          // C3 — bottom of the playable range
-  rangeSemitones: 24,    // two octaves of travel, top of frame to bottom
-  glideMs: 22,           // portamento time constant
-  smoothingDefault: 42,  // 0..100 -> One Euro beta
-  handLossGraceMs: 140,  // keep sounding briefly through tracking dropouts
-  modelUrl: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-  wasmBase: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
   esmUrl:   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18',
+  wasmBase: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
+  modelUrl: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+
+  baseMidi: 45,            // A2 — the ladder spans A2..A4
+  rangeSemitones: 24,
+  numHands: 2,
+
+  bpmDefault: 124,
+  steps: 16,               // sixteen sixteenths = one bar
+  lookaheadMs: 25,         // how often the scheduler wakes up
+  scheduleAhead: 0.12,     // how far ahead of the clock it schedules
+
+  smoothingDefault: 42,
+  energyDecay: 0.012,      // per-frame fall of the drop when the right hand leaves
+  leftGraceMs: 700,        // hold the last note this long after the left hand goes
+  rightGraceMs: 200,
 };
 
 const SCALES = {
-  pentatonic: { label: 'penta',  steps: [0, 2, 4, 7, 9] },
-  major:      { label: 'major',  steps: [0, 2, 4, 5, 7, 9, 11] },
-  minor:      { label: 'minor',  steps: [0, 2, 3, 5, 7, 8, 10] },
-  chromatic:  { label: 'free',   steps: [0,1,2,3,4,5,6,7,8,9,10,11] },
+  minor:     { label: 'minor', steps: [0, 2, 3, 5, 7, 8, 10] },
+  penta:     { label: 'penta', steps: [0, 3, 5, 7, 10] },
+  phrygian:  { label: 'phryg', steps: [0, 1, 3, 5, 7, 8, 10] },
+  chromatic: { label: 'free',  steps: [0,1,2,3,4,5,6,7,8,9,10,11] },
 };
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const midiToFreq = m => 440 * Math.pow(2, (m - 69) / 12);
 const noteName = m => NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
 // ------------------------------------------------------- One Euro filter ----
-// Casiez, Roussel & Vogel (CHI 2012). Low jitter when still, low lag when fast.
+// Casiez, Roussel & Vogel (CHI 2012). Not an EMA: the cutoff adapts to how fast
+// the hand is moving, so slow gestures are smooth and fast ones stay responsive.
 class LowPass {
   constructor(){ this.y = null; }
-  filter(x, alpha){ this.y = this.y === null ? x : alpha * x + (1 - alpha) * this.y; return this.y; }
+  filter(x, a){ this.y = this.y === null ? x : a * x + (1 - a) * this.y; return this.y; }
 }
-
 class OneEuroFilter {
   constructor({ minCutoff = 1.0, beta = 0.007, dCutoff = 1.0 } = {}){
     this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff;
     this.xf = new LowPass(); this.dxf = new LowPass();
-    this.freq = 60; this.lastT = null; this.lastX = null;
+    this.freq = 60; this.lastX = null;
   }
   alpha(cutoff){
     const te = 1 / this.freq;
     const tau = 1 / (2 * Math.PI * cutoff);
     return 1 / (1 + tau / te);
   }
-  filter(x, t){
-    if (t != null && this.lastT != null){
-      const dt = (t - this.lastT) / 1000;
-      if (dt > 0.0005) this.freq = clamp(1 / dt, 1, 120);
-    }
-    this.lastT = t;
-    const dx = this.lastX == null ? 0 : (x - this.lastX) * this.freq;
+  filter(x, dtMs){
+    if (dtMs > 0.5 && dtMs < 400) this.freq = clamp(1000 / dtMs, 1, 120);
+    const dx = this.lastX === null ? 0 : (x - this.lastX) * this.freq;
     const edx = this.dxf.filter(dx, this.alpha(this.dCutoff));
     const cutoff = this.minCutoff + this.beta * Math.abs(edx);
     const out = this.xf.filter(x, this.alpha(cutoff));
     this.lastX = x;
     return out;
   }
-  reset(){ this.xf.y = null; this.dxf.y = null; this.lastX = null; this.lastT = null; }
+  reset(){ this.xf.y = null; this.dxf.y = null; this.lastX = null; }
 }
 
-// ------------------------------------------------------- pitch ladder ------
+// ------------------------------------------------------------ ladder --------
 function buildLadder(steps, rootMidi, octaves){
   const out = [];
   for (let o = 0; o < octaves; o++)
@@ -322,130 +361,302 @@ function nearestIn(ladder, semi){
   return best;
 }
 
-// ------------------------------------------------------------- synth -------
-class AirSynth {
+// ------------------------------------------------------------- audio --------
+// Every sound is synthesised. No samples, no asset files — even the reverb
+// impulse is generated noise, so the instrument stays one HTML file.
+
+function noiseBuffer(ctx, seconds = 2){
+  const n = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+function impulseResponse(ctx, seconds = 2.6, decay = 2.6){
+  const n = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(2, n, ctx.sampleRate);
+  for (let c = 0; c < 2; c++){
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < n; i++)
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+  }
+  return buf;
+}
+
+class Engine {
   constructor(ctx){
     this.ctx = ctx;
+    this.pump = true;
+    this.enabled = false;
 
-    this.master = ctx.createGain();
-    this.master.gain.value = 0.0;
-    this.master.connect(ctx.destination);
+    // master: a compressor standing in for a limiter, so a full drop with
+    // every layer at once doesn't clip
+    this.master = ctx.createGain(); this.master.gain.value = 0;
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -7; this.limiter.knee.value = 4;
+    this.limiter.ratio.value = 14; this.limiter.attack.value = 0.003;
+    this.limiter.release.value = 0.22;
+    this.master.connect(this.limiter);
+    this.limiter.connect(ctx.destination);
 
-    // space: a gentle stereo-ish delay so single notes have a room
-    this.delay = ctx.createDelay(1.0);
-    this.delay.delayTime.value = 0.29;
-    this.fb = ctx.createGain(); this.fb.gain.value = 0.34;
-    this.wet = ctx.createGain(); this.wet.gain.value = 0.26;
-    const damp = ctx.createBiquadFilter();
-    damp.type = 'lowpass'; damp.frequency.value = 2400;
-    this.delay.connect(damp); damp.connect(this.fb); this.fb.connect(this.delay);
-    damp.connect(this.wet); this.wet.connect(this.master);
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 512;
+    this.analyser.smoothingTimeConstant = 0.75;
+    this.limiter.connect(this.analyser);
 
-    // voice: 3 detuned saws + a sine sub
-    this.filter = ctx.createBiquadFilter();
-    this.filter.type = 'lowpass';
-    this.filter.frequency.value = 1800;
-    this.filter.Q.value = 5.5;
+    this.noise = noiseBuffer(ctx);
 
-    this.voice = ctx.createGain();
-    this.voice.gain.value = 0.9;
+    // drums sit outside the sidechain — they are what does the ducking
+    this.drumBus = ctx.createGain(); this.drumBus.gain.value = 0.95;
+    this.drumBus.connect(this.master);
 
-    this.oscs = [];
-    const shapes = [
-      { type: 'sawtooth', detune:  0,  gain: 0.34 },
-      { type: 'sawtooth', detune: +8,  gain: 0.26 },
-      { type: 'sawtooth', detune: -8,  gain: 0.26 },
-      { type: 'sine',     detune:  0,  gain: 0.30, oct: -1 },
-    ];
-    for (const s of shapes){
-      const o = ctx.createOscillator();
-      o.type = s.type;
-      o.detune.value = s.detune;
-      const g = ctx.createGain(); g.gain.value = s.gain;
-      o.connect(g); g.connect(this.filter);
-      o.start();
-      this.oscs.push({ osc: o, oct: s.oct || 0 });
+    // the pump: the kick dips the music bus, which is the sound everyone
+    // recognises as EDM
+    this.duck = ctx.createGain(); this.duck.gain.value = 1;
+    this.duck.connect(this.master);
+
+    this.musicFilter = ctx.createBiquadFilter();
+    this.musicFilter.type = 'lowpass';
+    this.musicFilter.frequency.value = 400;
+    this.musicFilter.Q.value = 1.1;
+    this.musicFilter.connect(this.duck);
+
+    this.musicBus = ctx.createGain(); this.musicBus.gain.value = 0.72;
+    this.musicBus.connect(this.musicFilter);
+
+    this.reverb = ctx.createConvolver();
+    this.reverb.buffer = impulseResponse(ctx);
+    this.reverbSend = ctx.createGain(); this.reverbSend.gain.value = 0.06;
+    this.reverbSend.connect(this.reverb);
+    this.reverb.connect(this.duck);
+
+    this.delay = ctx.createDelay(2);
+    this.delay.delayTime.value = (60 / CFG.bpmDefault) * 0.75;   // dotted eighth
+    this.delayFb = ctx.createGain(); this.delayFb.gain.value = 0.34;
+    this.delaySend = ctx.createGain(); this.delaySend.gain.value = 0.10;
+    this.delay.connect(this.delayFb); this.delayFb.connect(this.delay);
+    this.delay.connect(this.duck);
+
+    this.musicBus.connect(this.reverbSend);
+    this.musicBus.connect(this.delaySend);
+  }
+
+  _env(param, t, peak, attack, decay){
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(0.0001, t);
+    param.linearRampToValueAtTime(peak, t + attack);
+    param.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+  }
+
+  // ---- drum voices ---------------------------------------------------------
+  kick(t){
+    const c = this.ctx;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(155, t);
+    o.frequency.exponentialRampToValueAtTime(44, t + 0.09);
+    this._env(g.gain, t, 1.0, 0.002, 0.34);
+    o.connect(g); g.connect(this.drumBus);
+    o.start(t); o.stop(t + 0.42);
+
+    // click transient so it still cuts through on a laptop speaker
+    const n = c.createBufferSource(); n.buffer = this.noise;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1800;
+    const ng = c.createGain();
+    this._env(ng.gain, t, 0.26, 0.001, 0.02);
+    n.connect(hp); hp.connect(ng); ng.connect(this.drumBus);
+    n.start(t); n.stop(t + 0.05);
+
+    if (this.pump) this.sidechain(t);
+  }
+
+  sidechain(t){
+    const g = this.duck.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(0.26, t + 0.012);   // fast dip
+    g.linearRampToValueAtTime(1, t + 0.30);       // slower recovery
+  }
+
+  hat(t, open){
+    const c = this.ctx;
+    const n = c.createBufferSource(); n.buffer = this.noise;
+    n.playbackRate.value = 1.6;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8200;
+    const g = c.createGain();
+    const d = open ? 0.26 : 0.035;
+    this._env(g.gain, t, open ? 0.19 : 0.15, 0.001, d);
+    n.connect(hp); hp.connect(g); g.connect(this.drumBus);
+    n.start(t); n.stop(t + d + 0.05);
+  }
+
+  clap(t){
+    const c = this.ctx;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 1500; bp.Q.value = 1.4;
+    const g = c.createGain();
+    this._env(g.gain, t, 0.32, 0.001, 0.17);
+    bp.connect(g); g.connect(this.drumBus);
+    // three fast bursts plus a tail — the classic clap smear
+    for (const off of [0, 0.011, 0.022]){
+      const n = c.createBufferSource(); n.buffer = this.noise;
+      n.connect(bp); n.start(t + off); n.stop(t + off + 0.02);
     }
-
-    this.filter.connect(this.voice);
-    this.voice.connect(this.master);
-    this.voice.connect(this.delay);
-
-    this.currentFreq = null;
-    this.enabled = true;
+    const tail = c.createBufferSource(); tail.buffer = this.noise;
+    tail.connect(bp); tail.start(t + 0.028); tail.stop(t + 0.20);
   }
 
-  setPitch(freq, glide){
-    if (freq == null) return;
-    const t = this.ctx.currentTime;
-    for (const { osc, oct } of this.oscs){
-      const f = oct ? freq / 2 : freq;
-      osc.frequency.setTargetAtTime(f, t, Math.max(glide, 0.001));
+  // ---- tonal voices --------------------------------------------------------
+  bass(t, midi){
+    const c = this.ctx, f = midiToFreq(midi);
+    const o1 = c.createOscillator(), o2 = c.createOscillator();
+    o1.type = 'sawtooth'; o2.type = 'square';
+    o1.frequency.value = f; o2.frequency.value = f; o2.detune.value = -6;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 520; lp.Q.value = 3.4;
+    const g = c.createGain();
+    this._env(g.gain, t, 0.42, 0.006, 0.16);
+    o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(this.musicBus);
+    o1.start(t); o2.start(t); o1.stop(t + 0.26); o2.stop(t + 0.26);
+  }
+
+  stab(t, midis){
+    const c = this.ctx;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 2600; lp.Q.value = 2;
+    const g = c.createGain();
+    this._env(g.gain, t, 0.12, 0.004, 0.13);
+    lp.connect(g); g.connect(this.musicBus);
+    for (const m of midis){
+      const o = c.createOscillator();
+      o.type = 'sawtooth'; o.frequency.value = midiToFreq(m);
+      o.connect(lp); o.start(t); o.stop(t + 0.20);
     }
-    this.currentFreq = freq;
   }
 
-  setLevel(v){
-    const t = this.ctx.currentTime;
-    const target = this.enabled ? clamp(v, 0, 1) * 0.32 : 0;
-    this.master.gain.setTargetAtTime(target, t, 0.018);
+  arp(t, midi){
+    const c = this.ctx;
+    const o = c.createOscillator();
+    o.type = 'triangle'; o.frequency.value = midiToFreq(midi);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 3400; lp.Q.value = 4;
+    const g = c.createGain();
+    this._env(g.gain, t, 0.15, 0.002, 0.09);
+    o.connect(lp); lp.connect(g); g.connect(this.musicBus);
+    o.start(t); o.stop(t + 0.13);
   }
 
-  setTimbre(v){ // 0..1 -> filter cutoff, log-ish
-    const t = this.ctx.currentTime;
-    const cut = 320 * Math.pow(2, clamp(v, 0, 1) * 5.0); // 320Hz .. ~10kHz
-    this.filter.frequency.setTargetAtTime(cut, t, 0.03);
+  // the drop: seven detuned saws — the signature EDM lead
+  lead(t, midi, dur = 0.30){
+    const c = this.ctx, f = midiToFreq(midi);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 5200; lp.Q.value = 1.4;
+    const g = c.createGain();
+    this._env(g.gain, t, 0.14, 0.012, dur);
+    lp.connect(g); g.connect(this.musicBus);
+    for (let i = 0; i < 7; i++){
+      const o = c.createOscillator();
+      o.type = 'sawtooth'; o.frequency.value = f;
+      o.detune.value = (i - 3) * 9;             // spread across ±27 cents
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.1);
+    }
   }
 
+  // ---- macro ---------------------------------------------------------------
+  setEnergy(e, now){
+    this.musicFilter.frequency.setTargetAtTime(300 + e * 7000, now, 0.06);
+    this.reverbSend.gain.setTargetAtTime(0.05 + e * 0.38, now, 0.10);
+    this.delaySend.gain.setTargetAtTime(0.08 + e * 0.26, now, 0.10);
+  }
   setEnabled(on){
     this.enabled = on;
-    if (!on) this.setLevel(0);
+    this.master.gain.setTargetAtTime(on ? 0.85 : 0, this.ctx.currentTime, 0.05);
   }
-
   latency(){
     const c = this.ctx;
-    return {
-      base: c.baseLatency || 0,
-      out:  typeof c.outputLatency === 'number' ? c.outputLatency : null,
-    };
+    return { base: c.baseLatency || 0, out: typeof c.outputLatency === 'number' ? c.outputLatency : null };
   }
 }
 
-// ------------------------------------------------------------ vision -------
-async function initVision(){
-  const mod = await import(CFG.esmUrl);
-  const { HandLandmarker, FilesetResolver } = mod;
-  if (!HandLandmarker) throw new Error('tasks-vision loaded but HandLandmarker export missing');
+// ---------------------------------------------------------- sequencer -------
+// Sixteen sixteenths to a bar. Layers gate on the energy macro, so raising the
+// right hand literally brings the track in one instrument at a time.
+const PATTERN = {
+  kick:  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+  hatC:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+  hatO:  [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
+  clap:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+  bass:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+  stab:  [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0],
+};
+const GATE = { hat: 0.14, bass: 0.24, clap: 0.30, stab: 0.46, arp: 0.62, lead: 0.76 };
+const ARP_CYCLE = [0, 7, 12, 7, 3, 10, 12, 10];
 
-  const fileset = await FilesetResolver.forVisionTasks(CFG.wasmBase);
+// The layer names shown in the drop meter, in the order they arrive.
+const LAYERS = [
+  [GATE.lead, 'lead'],
+  [GATE.arp, 'arp'],
+  [GATE.stab, 'stabs'],
+  [GATE.clap, 'clap'],
+  [GATE.bass, 'bass'],
+  [GATE.hat, 'hats'],
+  [-1, 'kick'],
+];
 
-  const make = (delegate) => HandLandmarker.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: CFG.modelUrl, delegate },
-    runningMode: 'VIDEO',
-    numHands: 2,
-    minHandDetectionConfidence: 0.5,
-    minHandPresenceConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-  });
+class Sequencer {
+  constructor(engine){
+    this.eng = engine;
+    this.step = 0;
+    this.next = 0;
+    this.onStep = null;
+  }
+  start(){
+    this.step = 0;
+    this.next = this.eng.ctx.currentTime + 0.08;
+  }
+  tick(bpm, energy, leadMidi){
+    const spb = 60 / bpm / 4;                    // seconds per sixteenth
+    const now = this.eng.ctx.currentTime;
+    while (this.next < now + CFG.scheduleAhead){
+      this.fire(this.step, this.next, energy, leadMidi);
+      this.next += spb;
+      this.step = (this.step + 1) % CFG.steps;
+    }
+  }
+  fire(i, t, energy, leadMidi){
+    const e = this.eng;
+    // Notify the UI first, before any early return below, so the step
+    // indicator advances even on a bare-kick bar with no lead note.
+    if (this.onStep) this.onStep(i);
 
-  try { return await make('GPU'); }
-  catch (e) {
-    console.warn('[airwave] GPU delegate unavailable, falling back to CPU:', e);
-    return await make('CPU');
+    if (PATTERN.kick[i]) e.kick(t);
+
+    if (energy > GATE.hat){
+      if (PATTERN.hatC[i]) e.hat(t, false);
+      if (energy > 0.5 && PATTERN.hatO[i]) e.hat(t, true);
+    }
+    if (leadMidi == null) return;
+
+    if (energy > GATE.bass && PATTERN.bass[i]) e.bass(t, leadMidi - 12);
+    if (energy > GATE.clap && PATTERN.clap[i]) e.clap(t);
+    if (energy > GATE.stab && PATTERN.stab[i]) e.stab(t, [leadMidi + 3, leadMidi + 7, leadMidi + 10]);
+    if (energy > GATE.arp) e.arp(t, leadMidi + ARP_CYCLE[i % ARP_CYCLE.length]);
+    if (energy > GATE.lead) e.lead(t, leadMidi + 12);
   }
 }
 
-// -------------------------------------------------------------- dom --------
+// --------------------------------------------------------------- dom --------
 const $ = id => document.getElementById(id);
 const el = {
-  video: $('cam'), overlay: $('overlay'), ladder: $('ladder'),
-  noteName: $('noteName'), noteHz: $('noteHz'),
+  video: $('cam'), overlay: $('overlay'), ladder: $('ladder'), steps: $('steps'),
+  noteName: $('noteName'), noteSub: $('noteSub'),
   sInf: $('sInf'), sCap: $('sCap'), sBuf: $('sBuf'), sOut: $('sOut'),
   sTotal: $('sTotal'), sFps: $('sFps'), verdict: $('verdict'),
-  meterFill: $('meterFill'), meterVal: $('meterVal'),
+  dropFill: $('dropFill'), dropLayer: $('dropLayer'),
   veil: $('veil'), veilTitle: $('veilTitle'), veilBody: $('veilBody'),
   veilErr: $('veilErr'), veilBtn: $('veilBtn'), spin: $('spin'),
-  scaleBtns: $('scaleBtns'), bGlide: $('bGlide'), bSound: $('bSound'), rSmooth: $('rSmooth'),
+  scaleBtns: $('scaleBtns'), bSound: $('bSound'), bPump: $('bPump'),
+  rBpm: $('rBpm'), bpmVal: $('bpmVal'), rSmooth: $('rSmooth'),
 };
 
 function showVeil(title, body, err){
@@ -457,25 +668,25 @@ function showVeil(title, body, err){
 }
 function hideVeil(){ el.veil.classList.remove('show'); }
 
-// -------------------------------------------------------------- state ------
+// ------------------------------------------------------------- state --------
 const state = {
-  scale: 'pentatonic',
-  ladder: buildLadder(SCALES.pentatonic.steps, CFG.baseMidi, 2),
-  glide: true,
+  scale: 'minor',
+  ladder: buildLadder(SCALES.minor.steps, CFG.baseMidi, 2),
+  bpm: CFG.bpmDefault,
   sound: true,
+  pump: true,
   smoothing: CFG.smoothingDefault,
-  hand: null,          // { x, y, level, timbre, size }
-  lastSeen: 0,
-  lastMidi: null,
-  sizeMin: 0.10,       // auto-calibrated hand-size range
-  sizeMax: 0.30,
+  leftNote: null,        // scale-locked midi, held until the left hand leaves
+  energy: 0,             // 0..1, the drop
+  seenLeft: 0,
+  seenRight: 0,
 };
 
-const fPitch  = new OneEuroFilter({ minCutoff: 0.9, beta: 0.007 });
-const fLevel  = new OneEuroFilter({ minCutoff: 0.7, beta: 0.010 });
-const fTimbre = new OneEuroFilter({ minCutoff: 0.6, beta: 0.006 });
+const fLeftY  = new OneEuroFilter({ minCutoff: 1.1, beta: 0.007 });
+const fRightY = new OneEuroFilter({ minCutoff: 1.4, beta: 0.010 });
+const fBright = new OneEuroFilter({ minCutoff: 0.9, beta: 0.006 });
 
-// ---------------------------------------------------------- controls -------
+// ---------------------------------------------------------- controls --------
 for (const key of Object.keys(SCALES)){
   const b = document.createElement('button');
   b.textContent = SCALES[key].label;
@@ -492,52 +703,98 @@ function setScale(key){
   buildLadderDOM();
 }
 
-el.bGlide.onclick = () => {
-  state.glide = !state.glide;
-  el.bGlide.setAttribute('aria-pressed', String(state.glide));
-};
 el.bSound.onclick = () => {
   state.sound = !state.sound;
   el.bSound.setAttribute('aria-pressed', String(state.sound));
-  if (synth) synth.setEnabled(state.sound);
+  if (engine) engine.setEnabled(state.sound);
+};
+el.bPump.onclick = () => {
+  state.pump = !state.pump;
+  el.bPump.setAttribute('aria-pressed', String(state.pump));
+  if (engine) engine.pump = state.pump;
+};
+el.rBpm.oninput = () => {
+  state.bpm = +el.rBpm.value;
+  el.bpmVal.textContent = String(state.bpm);
+  document.querySelector('#title p').textContent =
+    'two-handed air instrument · ' + state.bpm + ' BPM';
+  if (engine) engine.delay.delayTime.setTargetAtTime((60 / state.bpm) * 0.75, engine.ctx.currentTime, 0.05);
 };
 el.rSmooth.oninput = () => {
   state.smoothing = +el.rSmooth.value;
-  // map 0..100 -> beta 0.0005 (very smooth, laggy) .. 0.03 (raw, snappy)
+  // 0..100 -> beta 0.0005 (very smooth, laggy) .. 0.03 (raw, snappy)
   const beta = 0.0005 + (state.smoothing / 100) * 0.0295;
-  fPitch.beta = beta; fLevel.beta = beta * 1.3; fTimbre.beta = beta * 0.8;
+  fLeftY.beta = beta;
+  fRightY.beta = beta * 1.3;
+  fBright.beta = beta * 0.8;
 };
 
-// ---------------------------------------------------------- ladder ---------
-// Built once per scale change; only the "on" class is toggled per frame, so we
-// never rebuild DOM inside the render loop.
-let rungEls = [];
+// --------------------------------------------------- step + ladder DOM ------
+const stepEls = [];
+for (let i = 0; i < CFG.steps; i++){
+  const d = document.createElement('div');
+  d.className = 'step';
+  if (i % 4 === 0) d.classList.add('beat');
+  el.steps.appendChild(d);
+  stepEls.push(d);
+}
+function lightStep(i){
+  for (let k = 0; k < stepEls.length; k++) stepEls[k].classList.toggle('on', k === i);
+}
 
+let rungEls = [];
 function buildLadderDOM(){
   el.ladder.innerHTML = '';
   rungEls = [];
-  const maxSemi = CFG.rangeSemitones;
   state.ladder.forEach((m, i) => {
-    const rel = clamp((m - CFG.baseMidi) / maxSemi, 0, 1);
+    const rel = clamp((m - CFG.baseMidi) / CFG.rangeSemitones, 0, 1);
     const d = document.createElement('div');
     d.className = 'rung';
-    d.style.height = (26 + rel * 48) + 'px';
-    if (i === 0 || m % 12 === 0) d.classList.add('tonic');
+    d.style.height = (9 + rel * 22) + 'px';
+    if (m % 12 === 0) d.classList.add('tonic');
     el.ladder.appendChild(d);
     rungEls.push(d);
   });
   updateLadderActive();
 }
-
 function updateLadderActive(){
-  const active = state.lastMidi;
-  for (let i = 0; i < rungEls.length; i++){
-    const on = active != null && state.ladder[i] === active;
-    rungEls[i].classList.toggle('on', on);
+  const a = state.leftNote;
+  for (let i = 0; i < rungEls.length; i++)
+    rungEls[i].classList.toggle('on', a != null && state.ladder[i] === a);
+}
+
+// ------------------------------------------------------------- vision -------
+async function initVision(){
+  const mod = await import(CFG.esmUrl);
+  const { HandLandmarker, FilesetResolver } = mod;
+  if (!HandLandmarker) throw new Error('tasks-vision loaded but HandLandmarker export missing');
+
+  const fileset = await FilesetResolver.forVisionTasks(CFG.wasmBase);
+  const make = delegate => HandLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: CFG.modelUrl, delegate },
+    runningMode: 'VIDEO',
+    numHands: CFG.numHands,
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  try { return await make('GPU'); }
+  catch (e) {
+    console.warn('[airwave] GPU delegate unavailable, falling back to CPU:', e);
+    return await make('CPU');
   }
 }
 
-// ------------------------------------------------------------- canvas ------
+// Apparent hand size stands in for distance to the camera — far steadier than
+// the z coordinate MediaPipe reports.
+function handMetrics(lm){
+  const wrist = lm[0], mid = lm[9], idx = lm[8], pinky = lm[20];
+  const size = Math.hypot(mid.x - wrist.x, mid.y - wrist.y) || 1e-4;
+  const spread = Math.hypot(idx.x - pinky.x, idx.y - pinky.y) / size;
+  return { x: mid.x, y: mid.y, size, spread };
+}
+
+// ------------------------------------------------------------- canvas -------
 const ctx2d = el.overlay.getContext('2d');
 function resizeCanvas(){
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -555,57 +812,58 @@ const HAND_EDGES = [
   [0,17],
 ];
 
-function drawHand(landmarks){
+function drawHands(hands){
   const W = el.overlay.clientWidth, H = el.overlay.clientHeight;
   const dpr = el.overlay.width / Math.max(W, 1);
   ctx2d.save();
-  ctx2d.scale(dpr, dpr);
-  ctx2d.lineWidth = 2.1;
-  ctx2d.lineCap = 'round';
-  ctx2d.strokeStyle = 'rgba(45,212,247,.80)';
-  ctx2d.shadowColor = 'rgba(45,212,247,.85)';
-  ctx2d.shadowBlur = 13;
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2d.clearRect(0, 0, W, H);
 
-  const px = p => ({ x: (1 - p.x) * W, y: p.y * H }); // mirror to match the video
+  const styles = {
+    left:  { stroke: 'rgba(45,212,247,.82)', glow: 'rgba(45,212,247,.85)', label: 'HARMONY' },
+    right: { stroke: 'rgba(244,114,182,.82)', glow: 'rgba(244,114,182,.85)', label: 'DROP' },
+  };
+  const px = p => ({ x: (1 - p.x) * W, y: p.y * H });   // mirror to match the video
 
-  ctx2d.beginPath();
-  for (const [a, b] of HAND_EDGES){
-    const pa = px(landmarks[a]), pb = px(landmarks[b]);
-    ctx2d.moveTo(pa.x, pa.y); ctx2d.lineTo(pb.x, pb.y);
+  for (const slot of ['left', 'right']){
+    const h = hands[slot];
+    if (!h) continue;
+    const s = styles[slot];
+    ctx2d.lineWidth = 2.1; ctx2d.lineCap = 'round';
+    ctx2d.strokeStyle = s.stroke;
+    ctx2d.shadowColor = s.glow; ctx2d.shadowBlur = 13;
+    ctx2d.beginPath();
+    for (const [a, b] of HAND_EDGES){
+      const pa = px(h.lm[a]), pb = px(h.lm[b]);
+      ctx2d.moveTo(pa.x, pa.y); ctx2d.lineTo(pb.x, pb.y);
+    }
+    ctx2d.stroke();
+
+    ctx2d.fillStyle = 'rgba(232,236,244,.92)';
+    for (const p of h.lm){ const q = px(p); ctx2d.beginPath(); ctx2d.arc(q.x, q.y, 2.4, 0, 6.284); ctx2d.fill(); }
+
+    const c = px(h.lm[9]);
+    ctx2d.fillStyle = s.stroke;
+    ctx2d.beginPath(); ctx2d.arc(c.x, c.y, 6.4, 0, 6.284); ctx2d.fill();
+
+    ctx2d.shadowBlur = 0;
+    ctx2d.font = '600 10px ui-monospace,Menlo,monospace';
+    ctx2d.fillText(s.label, c.x - 26, c.y - 18);
   }
-  ctx2d.stroke();
-
-  ctx2d.fillStyle = 'rgba(232,236,244,.92)';
-  for (const p of landmarks){ const q = px(p); ctx2d.beginPath(); ctx2d.arc(q.x, q.y, 2.4, 0, 6.284); ctx2d.fill(); }
-
-  // highlight the control point (middle MCP)
-  const c = px(landmarks[9]);
-  ctx2d.fillStyle = 'rgba(139,92,246,.95)';
-  ctx2d.beginPath(); ctx2d.arc(c.x, c.y, 6.2, 0, 6.284); ctx2d.fill();
   ctx2d.restore();
 }
 
-function clearCanvas(){
-  const dpr = el.overlay.width / Math.max(el.overlay.clientWidth, 1);
-  ctx2d.save(); ctx2d.scale(dpr, dpr);
-  ctx2d.clearRect(0, 0, el.overlay.clientWidth, el.overlay.clientHeight);
-  ctx2d.restore();
-}
-
-// ------------------------------------------------------------- metrics -----
-const M = { inf: [], fps: [], lastFrame: 0, lastDetect: null };
-
-function pushAvg(arr, v, n = 45){ arr.push(v); if (arr.length > n) arr.shift(); }
+// ------------------------------------------------------------ metrics -------
+const M = { inf: [], fps: [], lastDetect: 0 };
 const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
-
-function fmtMs(v){ return v == null ? '—' : (v < 1 ? v.toFixed(2) : v.toFixed(1)) + ' ms'; }
+const push = (a, v, n = 45) => { a.push(v); if (a.length > n) a.shift(); };
+const fmtMs = v => v == null ? '—' : (v < 1 ? v.toFixed(2) : v.toFixed(1)) + ' ms';
 
 function updateStats(){
   const inf = avg(M.inf);
   const fps = M.fps.length ? 1000 / avg(M.fps) : 0;
-  const frameMs = fps ? 1000 / fps : 0;
-  const cap = frameMs / 2;             // average wait for a fresh camera frame
-  const { base, out } = synth ? synth.latency() : { base: 0, out: null };
+  const cap = fps ? (1000 / fps) / 2 : 0;    // average wait for a fresh frame
+  const { base, out } = engine ? engine.latency() : { base: 0, out: null };
   const buf = base * 1000;
   const outMs = out == null ? null : out * 1000;
   const total = inf + cap + buf + (outMs || 0);
@@ -627,9 +885,104 @@ function updateStats(){
   el.verdict.className = cls;
 }
 
-// --------------------------------------------------------------- main ------
-let synth = null;
-let running = false;
+function renderReadout(){
+  const e = state.energy;
+  el.dropFill.style.width = (e * 100).toFixed(0) + '%';
+  for (const [thr, name] of LAYERS){ if (e > thr){ el.dropLayer.textContent = name; break; } }
+
+  const m = state.leftNote;
+  if (m == null){
+    el.noteName.textContent = '—';
+    el.noteName.className = 'idle';
+    el.noteSub.textContent = 'raise your left hand';
+  } else {
+    el.noteName.textContent = noteName(m);
+    el.noteName.className = '';
+    el.noteSub.textContent = midiToFreq(m).toFixed(1) + ' Hz · ' + SCALES[state.scale].label;
+  }
+  updateLadderActive();
+}
+
+// ---------------------------------------------------------------- main ------
+let engine = null, seq = null, running = false;
+let frameTick = 0;
+
+function loop(detector, actx){
+  if (!running) return;
+  requestAnimationFrame(() => loop(detector, actx));
+
+  const v = el.video;
+  if (!v.videoWidth || v.readyState < 2) return;
+
+  const now = performance.now();
+  const dt = M.lastDetect ? now - M.lastDetect : 16;
+  if (M.lastDetect) push(M.fps, now - M.lastDetect);
+  M.lastDetect = now;
+
+  // ---- inference -----------------------------------------------------------
+  const t0 = performance.now();
+  let res = null;
+  try { res = detector.detectForVideo(v, now); }
+  catch (e) { console.warn('[airwave] detect failed', e); return; }
+  push(M.inf, performance.now() - t0);
+
+  // ---- assign hands to slots ----------------------------------------------
+  // Two hands: leftmost on screen is HARMONY, rightmost is DROP. One hand keeps
+  // whichever slot it already owns until it clearly crosses the centre, so a
+  // hand near the middle doesn't flicker between roles.
+  const found = res.landmarks || res.multiHandLandmarks || [];
+  const list = found.map(lm => ({ lm, ...handMetrics(lm) })).sort((a, b) => a.x - b.x);
+  const hands = { left: null, right: null };
+
+  if (list.length >= 2){
+    hands.left = list[0];
+    hands.right = list[list.length - 1];
+  } else if (list.length === 1){
+    const h = list[0];
+    const ownedLeft = (now - state.seenLeft) < (now - state.seenRight);
+    const cut = ownedLeft ? 0.58 : 0.42;
+    hands[h.x < cut ? 'left' : 'right'] = h;
+  }
+
+  // ---- left hand -> harmony -----------------------------------------------
+  if (hands.left){
+    state.seenLeft = now;
+    const y = clamp(fLeftY.filter(1 - hands.left.y, dt), 0, 1);
+    state.leftNote = nearestIn(state.ladder, CFG.baseMidi + y * CFG.rangeSemitones);
+  } else if (now - state.seenLeft > CFG.leftGraceMs){
+    state.leftNote = null;
+  }
+
+  // ---- right hand -> the drop ---------------------------------------------
+  if (hands.right){
+    state.seenRight = now;
+    state.energy = clamp(fRightY.filter(1 - hands.right.y, dt), 0, 1);
+    const bright = clamp(fBright.filter((hands.right.spread - 0.55) / 0.75, dt), 0, 1);
+    engine.setEnergy(state.energy * (0.55 + bright * 0.45), actx.currentTime);
+  } else if (now - state.seenRight > CFG.rightGraceMs){
+    // no drop hand: the track falls back to a bare kick
+    state.energy *= (1 - CFG.energyDecay * (dt / 16.7));
+    if (state.energy < 0.004) state.energy = 0;
+    engine.setEnergy(state.energy, actx.currentTime);
+  }
+
+  drawHands(hands);
+  renderReadout();
+  if (++frameTick % 6 === 0) updateStats();
+}
+
+// ---------------------------------------------------------------- boot ------
+buildLadderDOM();
+el.rSmooth.oninput();
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); el.bSound.click(); }
+  const keys = Object.keys(SCALES);
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= keys.length) setScale(keys[n - 1]);
+});
+
+el.veilBtn.onclick = () => start();
 
 async function start(){
   el.spin.style.display = 'block';
@@ -637,13 +990,25 @@ async function start(){
   showVeil('Starting AIRWAVE', 'Loading the hand-tracking model and asking for camera access.');
 
   try {
-    // 1. audio
+    // 1. audio — the sequencer starts immediately, so the beat is running
+    //    before the model has even finished loading
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) throw new Error('Web Audio API not available in this browser');
     const actx = new AC({ latencyHint: 'interactive' });
     await actx.resume();
-    synth = new AirSynth(actx);
-    synth.setEnabled(state.sound);
+
+    engine = new Engine(actx);
+    engine.pump = state.pump;
+    engine.setEnabled(state.sound);
+    engine.setEnergy(0, actx.currentTime);
+
+    seq = new Sequencer(engine);
+    seq.onStep = lightStep;
+    seq.start();
+    // The scheduler runs on its own timer. Timing never depends on the render
+    // loop, so a dropped frame cannot move the beat.
+    setInterval(() => { if (seq) seq.tick(state.bpm, state.energy, state.leftNote); },
+                CFG.lookaheadMs);
 
     // 2. camera
     if (!navigator.mediaDevices?.getUserMedia)
@@ -663,7 +1028,6 @@ async function start(){
     const detector = await initVision();
 
     resizeCanvas();
-    buildLadderDOM();
     hideVeil();
     running = true;
     loop(detector, actx);
@@ -683,114 +1047,6 @@ async function start(){
   }
 }
 
-el.veilBtn.onclick = () => start();
-
-let frameTick = 0;
-
-function loop(detector, actx){
-  if (!running) return;
-  requestAnimationFrame(() => loop(detector, actx));
-
-  const v = el.video;
-  if (!v.videoWidth || v.readyState < 2) return;
-
-  const now = performance.now();
-  if (M.lastDetect != null) pushAvg(M.fps, now - M.lastDetect);
-  M.lastDetect = now;
-
-  // --- inference ---
-  const t0 = performance.now();
-  let res;
-  try { res = detector.detectForVideo(v, now); }
-  catch (e) { console.warn('[airwave] detect failed', e); return; }
-  const t1 = performance.now();
-  pushAvg(M.inf, t1 - t0);
-
-  const hands = res.landmarks || res.multiHandLandmarks || [];
-  clearCanvas();
-
-  if (hands.length){
-    const lm = hands[0];
-    drawHand(lm);
-
-    const wrist = lm[0], mid = lm[9], idx = lm[8], pinky = lm[20];
-
-    // hand size (wrist->middle MCP) is a far more stable distance proxy than z
-    const size = Math.hypot(mid.x - wrist.x, mid.y - wrist.y);
-
-    // auto-calibrate the usable hand-size range, slowly
-    if (size < state.sizeMin) state.sizeMin += (size - state.sizeMin) * 0.05;
-    if (size > state.sizeMax) state.sizeMax += (size - state.sizeMax) * 0.05;
-    if (state.sizeMax - state.sizeMin < 0.06) state.sizeMax = state.sizeMin + 0.06;
-
-    const dist01 = clamp((size - state.sizeMin) / (state.sizeMax - state.sizeMin), 0, 1);
-
-    // pitch: vertical position, hand up = high
-    const pitch01 = clamp(1 - mid.y, 0, 1);
-    const semis = pitch01 * CFG.rangeSemitones;
-    const midi = nearestIn(state.ladder, semis + CFG.baseMidi);
-
-    // timbre: finger spread, normalised by hand size
-    const spread = Math.hypot(idx.x - pinky.x, idx.y - pinky.y) / Math.max(size, 1e-4);
-    const timbre01 = clamp((spread - 0.7) / 1.5, 0, 1);
-
-    state.hand = {
-      pitch: fPitch.filter(midi, now),
-      level: fLevel.filter(dist01, now),
-      timbre: fTimbre.filter(timbre01, now),
-      midi,
-    };
-    state.lastSeen = now;
-    state.lastMidi = midi;
-  } else {
-    // brief grace so a one-frame dropout doesn't chop the note
-    if (now - state.lastSeen > CFG.handLossGraceMs){
-      state.hand = null;
-      state.lastMidi = null;
-      fPitch.reset(); fLevel.reset(); fTimbre.reset();
-    }
-  }
-
-  // --- drive the synth ---
-  if (state.hand){
-    const glide = state.glide ? CFG.glideMs / 1000 : 0.001;
-    synth.setPitch(midiToFreq(state.hand.pitch), glide);
-    synth.setLevel(state.hand.level);
-    synth.setTimbre(state.hand.timbre);
-  } else {
-    synth.setLevel(0);
-  }
-
-  renderReadout();
-  if (++frameTick % 6 === 0) updateStats();
-}
-
-function renderReadout(){
-  const h = state.hand;
-  if (h){
-    const n = noteName(h.midi);
-    el.noteName.textContent = n;
-    el.noteName.className = '';
-    el.noteHz.textContent = midiToFreq(h.pitch).toFixed(1) + ' Hz  ·  ' + SCALES[state.scale].label;
-  } else {
-    el.noteName.textContent = '—';
-    el.noteName.className = 'idle';
-    el.noteHz.textContent = 'no hand detected';
-  }
-  const lvl = h ? clamp(h.level, 0, 1) : 0;
-  el.meterFill.style.width = (lvl * 100).toFixed(0) + '%';
-  el.meterVal.textContent = (lvl * 100).toFixed(0) + '%';
-  updateLadderActive();
-}
-
-// --------------------------------------------------------------- boot ------
-buildLadderDOM();
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space'){ e.preventDefault(); el.bSound.click(); }
-  const keys = Object.keys(SCALES);
-  const n = parseInt(e.key, 10);
-  if (n >= 1 && n <= keys.length) setScale(keys[n - 1]);
-});
 start();
 </script>
 </body>

@@ -42,12 +42,12 @@ Measured in **headless Chrome with `--disable-gpu --enable-unsafe-swiftshader`**
 pure software rendering, which is a worst case, not a prediction:
 
 ```
-inference      86.5 ms   ← software GL; this is the inflated one
-capture        43.1 ms   ← consequence of 12 fps
+inference      84.8 ms   ← software GL; this is the inflated one
+capture        42.7 ms   ← consequence of 12 fps
 audio buffer    5.8 ms
 audio output   26.0 ms
 ─────────────────────────
-total         161.3 ms   → "too slow to feel like an instrument"
+total         159.3 ms   → "too slow to feel like an instrument"
 ```
 
 The verdict line said exactly that, which is the instrumentation working correctly.

@@ -46,7 +46,7 @@ node --check airwave.mjs && rm airwave.mjs
 
 - **Running the palm detector every N frames** and tracking between — the standard
   MediaPipe optimisation, and the biggest available latency win.
-- **Two-handed control** — left hand for modulation, right for pitch.
+- **Pattern variation per bar** — a long drop currently loops one bar identically.
 - **Per-finger articulation** — 21 landmarks is a lot of unused signal.
 - **Web MIDI out**, so AIRWAVE can drive a real synth or DAW.
 
