@@ -175,6 +175,7 @@
     border-radius:8px;padding:10px;margin-top:14px;text-align:left;word-break:break-word}
   #veil button{margin-top:18px;padding:9px 20px;font-size:13px}
   .spin{
+    display:none;              /* revealed by start(); hidden on the intro screen */
     width:26px;height:26px;margin:0 auto 18px;border-radius:50%;
     border:2px solid rgba(140,160,200,.2);border-top-color:var(--cyan);
     animation:sp .8s linear infinite;
@@ -982,6 +983,13 @@ window.addEventListener('keydown', e => {
   if (n >= 1 && n <= keys.length) setScale(keys[n - 1]);
 });
 
+// A user gesture is REQUIRED before starting. Browsers keep an AudioContext
+// suspended until one, and `await actx.resume()` never settles without it — so
+// auto-starting hangs silently on a real page, even though it passes under the
+// headless test flags that disable the autoplay policy.
+el.veilBtn.textContent = 'Start';
+el.veilBtn.style.display = 'inline-block';
+showVeil('AIRWAVE', 'Two hands, no controller. Allow camera access when asked, then raise your left hand.');
 el.veilBtn.onclick = () => start();
 
 async function start(){
@@ -989,13 +997,27 @@ async function start(){
   el.veilBtn.style.display = 'none';
   showVeil('Starting AIRWAVE', 'Loading the hand-tracking model and asking for camera access.');
 
+  // If anything below stalls — a blocked CDN, an unanswered permission prompt —
+  // the veil would otherwise sit on "Starting" forever with no way out.
+  const watchdog = setTimeout(() => {
+    if (running) return;
+    el.spin.style.display = 'none';
+    el.veilBtn.textContent = 'Retry';
+    el.veilBtn.style.display = 'inline-block';
+    showVeil('Still starting…',
+      'This is taking longer than expected. Check your connection and that you answered the camera prompt, then retry.',
+      'Timed out after 25 s.');
+  }, 25000);
+
   try {
     // 1. audio — the sequencer starts immediately, so the beat is running
     //    before the model has even finished loading
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) throw new Error('Web Audio API not available in this browser');
     const actx = new AC({ latencyHint: 'interactive' });
-    await actx.resume();
+    // Resolves immediately inside a user gesture; raced so a context that
+    // refuses to start cannot hang the boot.
+    await Promise.race([actx.resume(), new Promise(r => setTimeout(r, 1500))]);
 
     engine = new Engine(actx);
     engine.pump = state.pump;
@@ -1027,12 +1049,14 @@ async function start(){
     // 3. model
     const detector = await initVision();
 
+    clearTimeout(watchdog);
     resizeCanvas();
     hideVeil();
     running = true;
     loop(detector, actx);
 
   } catch (err) {
+    clearTimeout(watchdog);
     console.error('[airwave] start failed', err);
     el.spin.style.display = 'none';
     const needsHttps = /getUserMedia|https|localhost/i.test(String(err));
@@ -1047,7 +1071,6 @@ async function start(){
   }
 }
 
-start();
 </script>
 </body>
 </html>
