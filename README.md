@@ -16,7 +16,7 @@ Runs entirely in your browser. The camera feed never leaves your machine — the
 server, no upload, no telemetry.
 
 ```
-LEFT  hand   height      → the note  (scale-locked) → drives bass root + melody
+LEFT  hand   height      → the chord (from a progression) → drives bass + stabs + arp
 RIGHT hand   height      → the drop  (kick → hats → bass → stabs → arp → lead)
              finger spread → filter brightness
 ```
@@ -35,7 +35,7 @@ groove. That's the whole difference between a drum machine and a bag of noise.
 The second idea is **time quantisation**, and it's the same trick as pitch quantisation
 applied to a different axis:
 
-- **Pitch is quantised to a scale**, so you can't play a wrong note.
+- **Harmony is quantised to a progression**, so you can't play a wrong chord.
 - **Time is quantised to the grid**, so moving your hand doesn't retune a sounding note —
   it arms the note for the next step boundary.
 
@@ -47,10 +47,12 @@ theremin became a punchline rather than an instrument.
 
 | Input | Action |
 |---|---|
-| **Left hand, up/down** | the note — scale-locked, drives bass root and melody |
+| **Left hand, up/down** | the chord — picked from the progression, drives bass, stabs and arp |
 | **Right hand, up/down** | the drop — brings layers in one at a time |
 | **Right hand, open/close** | filter brightness |
-| `1` `2` `3` `4` | minor / pentatonic / phrygian / free |
+| **progression** | the chord sequence your left hand steps through |
+| **scale** | minor / major / dorian / phrygian |
+| `1` `2` `3` `4` | switch scale |
 | `Space` | mute / unmute |
 | **tempo** | 110–140 BPM |
 | **pump** | the sidechain — the kick ducking the music bus |
@@ -75,6 +77,32 @@ Raising your right hand brings these in, in order. The drop meter names the curr
 
 Filter cutoff, reverb send and delay send all ride the same macro, so a drop sounds like
 a drop and not just "more notes".
+
+### Harmony
+
+Your left hand doesn't pick a note, it picks a **chord** from a progression. The vertical
+range is split into one band per chord, so a four-chord progression gives your hand four
+positions — the same four you'd play on a keyboard.
+
+Chords are built by stacking 1–3–5 of the selected scale, which is what keeps every chord
+diatonic to it. In A minor, `levels` gives **Am → C → G → F**.
+
+| Progression | Degrees | In A minor |
+|---|---|---|
+| **levels** | i–III–VII–VI | Am · C · G · F |
+| **anthem** | I–V–vi–IV | Am · Em · F · Dm |
+| **deep house** | i–VI–iv | Am · F · Dm |
+| **trance** | i–VII–VI–VII | Am · G · F · G |
+| **dark** | i–i–VI–VII | Am · Am · F · G |
+| **future bass** | I–iii–vi–IV | Am · C · F · Dm |
+| **emotional** | vi–IV–I–V | F · Dm · Am · Em |
+| **andalusian** | i–VII–VI–V | Am · G · F · Em |
+
+All four scales are seven-note on purpose. Progressions are diatonic, and stacking a
+pentatonic or chromatic scale yields sus-clusters with no chord name at all.
+
+Every tonal layer reads from the same chord object, so the bass, the stabs and the arp
+can't disagree about the key.
 
 ---
 
@@ -134,6 +162,13 @@ Full comparison with sources: [docs/sensors.md](docs/sensors.md).
 - Lookahead scheduler driven by the audio clock — timing is immune to render-loop stalls
 - 16-step pattern, tempo 110–140 BPM
 - Layers gate on the energy macro
+
+**Harmony**
+- 8 progressions × 4 seven-note scales, chords built by stacking 1–3–5 of the scale
+- One chord object feeds bass, stabs, arp and lead, so the layers can't disagree
+- Chord names derived from the sounding intervals, never assumed from the degree
+- `test/harmony.test.cjs` extracts these functions from `index.html` and checks the
+  theory — diatonicity, naming, and the canonical progressions
 
 **Synth — every sound is synthesised, no samples**
 - Kick: sine with a pitch envelope, plus a click transient

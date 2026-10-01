@@ -31,10 +31,13 @@ jobs:
           node --check airwave.mjs
           rm -f airwave.mjs
 
+      - name: Harmony theory tests
+        run: node test/harmony.test.cjs
+
       - name: Assert required files exist
         run: |
           missing=0
-          for f in index.html README.md LICENSE docs/sensors.md docs/latency.md; do
+          for f in index.html README.md LICENSE docs/sensors.md docs/latency.md test/harmony.test.cjs; do
             if [ ! -e "$f" ]; then echo "::error::missing $f"; missing=1; fi
           done
           exit $missing

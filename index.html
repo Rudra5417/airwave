@@ -133,6 +133,14 @@
     background:linear-gradient(92deg,rgba(45,212,247,.20),rgba(139,92,246,.20));
     border-color:rgba(45,212,247,.5);color:#fff;
   }
+  #controls .panel{width:196px}
+  select{
+    width:100%;font:11.5px/1.4 ui-sans-serif,system-ui,sans-serif;color:var(--text);
+    background:rgba(140,160,200,.10);border:1px solid var(--edge);
+    padding:6px 8px;border-radius:7px;cursor:pointer;outline:none;
+  }
+  select:hover{border-color:rgba(140,160,200,.3)}
+  select option{background:#0b0e18;color:var(--text)}
   .slider{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted);margin-top:8px}
   input[type=range]{width:100px;accent-color:var(--cyan)}
   .slider b{color:var(--cyan);font:600 11px ui-monospace,Menlo,monospace;min-width:30px;text-align:right}
@@ -231,6 +239,10 @@
 
   <div class="hud interactive" id="controls">
     <div class="panel">
+      <h3>Progression</h3>
+      <select id="progSel"></select>
+    </div>
+    <div class="panel">
       <h3>Scale</h3>
       <div class="btns" id="scaleBtns"></div>
     </div>
@@ -257,7 +269,7 @@
     <h2 id="veilTitle">Starting AIRWAVE</h2>
     <p id="veilBody">Loading the hand-tracking model and asking for camera access.</p>
     <div class="legend">
-      <div class="l"><b>LEFT HAND</b>height picks the note.<br>It drives the bass and the melody.</div>
+      <div class="l"><b>LEFT HAND</b>height picks the chord.<br>Bass, stabs and arp all follow it.</div>
       <div class="r"><b>RIGHT HAND</b>height is the drop.<br>Raise it to bring the track in.</div>
     </div>
     <div class="err" id="veilErr" style="display:none"></div>
@@ -307,11 +319,14 @@ const CFG = {
   rightGraceMs: 200,
 };
 
+// All seven-note scales, deliberately. Progressions are built by stacking 1-3-5
+// of the scale, which only yields real chords on a diatonic seven-note scale —
+// a pentatonic or chromatic scale stacks into nameless sus-clusters.
 const SCALES = {
-  minor:     { label: 'minor', steps: [0, 2, 3, 5, 7, 8, 10] },
-  penta:     { label: 'penta', steps: [0, 3, 5, 7, 10] },
-  phrygian:  { label: 'phryg', steps: [0, 1, 3, 5, 7, 8, 10] },
-  chromatic: { label: 'free',  steps: [0,1,2,3,4,5,6,7,8,9,10,11] },
+  minor:    { label: 'minor',  steps: [0, 2, 3, 5, 7, 8, 10] },
+  major:    { label: 'major',  steps: [0, 2, 4, 5, 7, 9, 11] },
+  dorian:   { label: 'dorian', steps: [0, 2, 3, 5, 7, 9, 10] },
+  phrygian: { label: 'phryg',  steps: [0, 1, 3, 5, 7, 8, 10] },
 };
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
@@ -356,10 +371,52 @@ function buildLadder(steps, rootMidi, octaves){
     for (const s of steps) out.push(rootMidi + o * 12 + s);
   return out.sort((a, b) => a - b);
 }
-function nearestIn(ladder, semi){
-  let best = ladder[0], bd = Infinity;
-  for (const v of ladder){ const d = Math.abs(v - semi); if (d < bd){ bd = d; best = v; } }
-  return best;
+// ------------------------------------------------------------- harmony ------
+// A progression is just a list of scale degrees. Whatever scale is selected the
+// chords are built diatonically from it, so "i-III-VII-VI" gives the Avicii
+// progression in natural minor and something darker in phrygian, without you
+// touching anything but the scale button.
+const PROGRESSIONS = {
+  levels:    { label: 'levels — i–III–VII–VI',     degrees: [0, 2, 6, 5] },
+  anthem:    { label: 'anthem — I–V–vi–IV',        degrees: [0, 4, 5, 3] },
+  deep:      { label: 'deep house — i–VI–iv',      degrees: [0, 5, 3] },
+  trance:    { label: 'trance — i–VII–VI–VII',     degrees: [0, 6, 5, 6] },
+  dark:      { label: 'dark — i–i–VI–VII',         degrees: [0, 0, 5, 6] },
+  future:    { label: 'future bass — I–iii–vi–IV', degrees: [0, 2, 5, 3] },
+  emotional: { label: 'emotional — vi–IV–I–V',     degrees: [5, 3, 0, 4] },
+  andalusian:{ label: 'andalusian — i–VII–VI–V',   degrees: [0, 6, 5, 4] },
+};
+
+// Stack 1–3–5 of the scale counting from the chord's root degree, wrapping
+// octaves. That is what makes every chord diatonic to the selected scale.
+function triadAt(scaleSteps, rootMidi, degree){
+  const n = scaleSteps.length;
+  const at = i => {
+    const idx = ((i % n) + n) % n;
+    const oct = Math.floor(i / n);
+    return rootMidi + scaleSteps[idx] + oct * 12;
+  };
+  return [at(degree), at(degree + 2), at(degree + 4)];
+}
+
+// Name the chord from its actual intervals, so the readout can never claim a
+// major chord when a minor one is sounding.
+function chordName(tones){
+  const [r, t, f] = tones;
+  const third = (((t - r) % 12) + 12) % 12;
+  const fifth = (((f - r) % 12) + 12) % 12;
+  let q;
+  if (third === 3) q = fifth === 6 ? 'dim' : 'm';      // minor must say so
+  else if (third === 4) q = fifth === 8 ? 'aug' : '';  // major is the unmarked default
+  else q = '?';
+  return NOTE_NAMES[((r % 12) + 12) % 12] + q;
+}
+
+function buildChord(scaleKey, progKey, index){
+  const prog = PROGRESSIONS[progKey];
+  const degree = prog.degrees[clamp(index, 0, prog.degrees.length - 1)];
+  const tones = triadAt(SCALES[scaleKey].steps, CFG.baseMidi, degree);
+  return { root: tones[0], tones, name: chordName(tones), degree, index };
 }
 
 // ------------------------------------------------------------- audio --------
@@ -591,7 +648,9 @@ const PATTERN = {
   stab:  [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0],
 };
 const GATE = { hat: 0.14, bass: 0.24, clap: 0.30, stab: 0.46, arp: 0.62, lead: 0.76 };
-const ARP_CYCLE = [0, 7, 12, 7, 3, 10, 12, 10];
+// Indices into the chord's triad — the arp walks the chord rather than a fixed
+// semitone pattern, so it stays in key whatever progression is selected.
+const ARP_CYCLE = [0, 1, 2, 1, 0, 2, 1, 2];
 
 // The layer names shown in the drop meter, in the order they arrive.
 const LAYERS = [
@@ -615,19 +674,19 @@ class Sequencer {
     this.step = 0;
     this.next = this.eng.ctx.currentTime + 0.08;
   }
-  tick(bpm, energy, leadMidi){
+  tick(bpm, energy, chord){
     const spb = 60 / bpm / 4;                    // seconds per sixteenth
     const now = this.eng.ctx.currentTime;
     while (this.next < now + CFG.scheduleAhead){
-      this.fire(this.step, this.next, energy, leadMidi);
+      this.fire(this.step, this.next, energy, chord);
       this.next += spb;
       this.step = (this.step + 1) % CFG.steps;
     }
   }
-  fire(i, t, energy, leadMidi){
+  fire(i, t, energy, chord){
     const e = this.eng;
     // Notify the UI first, before any early return below, so the step
-    // indicator advances even on a bare-kick bar with no lead note.
+    // indicator advances even on a bare-kick bar with no chord.
     if (this.onStep) this.onStep(i);
 
     if (PATTERN.kick[i]) e.kick(t);
@@ -636,13 +695,15 @@ class Sequencer {
       if (PATTERN.hatC[i]) e.hat(t, false);
       if (energy > 0.5 && PATTERN.hatO[i]) e.hat(t, true);
     }
-    if (leadMidi == null) return;
+    if (!chord) return;
 
-    if (energy > GATE.bass && PATTERN.bass[i]) e.bass(t, leadMidi - 12);
+    // Every tonal layer is fed from the same chord, so bass, stabs and arp can
+    // never disagree about the key.
+    if (energy > GATE.bass && PATTERN.bass[i]) e.bass(t, chord.root - 12);
     if (energy > GATE.clap && PATTERN.clap[i]) e.clap(t);
-    if (energy > GATE.stab && PATTERN.stab[i]) e.stab(t, [leadMidi + 3, leadMidi + 7, leadMidi + 10]);
-    if (energy > GATE.arp) e.arp(t, leadMidi + ARP_CYCLE[i % ARP_CYCLE.length]);
-    if (energy > GATE.lead) e.lead(t, leadMidi + 12);
+    if (energy > GATE.stab && PATTERN.stab[i]) e.stab(t, chord.tones.map(m => m + 12));
+    if (energy > GATE.arp) e.arp(t, chord.tones[ARP_CYCLE[i % ARP_CYCLE.length]] + 24);
+    if (energy > GATE.lead) e.lead(t, chord.root + 36);
   }
 }
 
@@ -657,6 +718,7 @@ const el = {
   veil: $('veil'), veilTitle: $('veilTitle'), veilBody: $('veilBody'),
   veilErr: $('veilErr'), veilBtn: $('veilBtn'), spin: $('spin'),
   scaleBtns: $('scaleBtns'), bSound: $('bSound'), bPump: $('bPump'),
+  progSel: $('progSel'),
   rBpm: $('rBpm'), bpmVal: $('bpmVal'), rSmooth: $('rSmooth'),
 };
 
@@ -672,12 +734,14 @@ function hideVeil(){ el.veil.classList.remove('show'); }
 // ------------------------------------------------------------- state --------
 const state = {
   scale: 'minor',
+  prog: 'levels',
   ladder: buildLadder(SCALES.minor.steps, CFG.baseMidi, 2),
+  chord: null,           // { root, tones, name } — held until the left hand leaves
+  chordIndex: null,      // which chord of the progression the hand is on
   bpm: CFG.bpmDefault,
   sound: true,
   pump: true,
   smoothing: CFG.smoothingDefault,
-  leftNote: null,        // scale-locked midi, held until the left hand leaves
   energy: 0,             // 0..1, the drop
   seenLeft: 0,
   seenRight: 0,
@@ -696,13 +760,33 @@ for (const key of Object.keys(SCALES)){
   b.onclick = () => setScale(key);
   el.scaleBtns.appendChild(b);
 }
+for (const key of Object.keys(PROGRESSIONS)){
+  const o = document.createElement('option');
+  o.value = key;
+  o.textContent = PROGRESSIONS[key].label;
+  el.progSel.appendChild(o);
+}
+el.progSel.value = state.prog;
+
+// Rebuild the sounding chord whenever the scale, the progression, or the hand's
+// position changes. Everything tonal reads from state.chord.
+function refreshChord(){
+  if (state.chordIndex == null) return;
+  state.chord = buildChord(state.scale, state.prog, state.chordIndex);
+}
+
 function setScale(key){
   state.scale = key;
   state.ladder = buildLadder(SCALES[key].steps, CFG.baseMidi, 2);
   for (const b of el.scaleBtns.children)
     b.setAttribute('aria-pressed', String(b.dataset.scale === key));
   buildLadderDOM();
+  refreshChord();
 }
+el.progSel.onchange = () => {
+  state.prog = el.progSel.value;
+  refreshChord();
+};
 
 el.bSound.onclick = () => {
   state.sound = !state.sound;
@@ -759,9 +843,10 @@ function buildLadderDOM(){
   updateLadderActive();
 }
 function updateLadderActive(){
-  const a = state.leftNote;
+  // Light every chord tone, so the triad is visible moving up and down the scale.
+  const tones = state.chord ? new Set(state.chord.tones) : null;
   for (let i = 0; i < rungEls.length; i++)
-    rungEls[i].classList.toggle('on', a != null && state.ladder[i] === a);
+    rungEls[i].classList.toggle('on', !!tones && tones.has(state.ladder[i]));
 }
 
 // ------------------------------------------------------------- vision -------
@@ -891,15 +976,15 @@ function renderReadout(){
   el.dropFill.style.width = (e * 100).toFixed(0) + '%';
   for (const [thr, name] of LAYERS){ if (e > thr){ el.dropLayer.textContent = name; break; } }
 
-  const m = state.leftNote;
-  if (m == null){
+  const c = state.chord;
+  if (!c){
     el.noteName.textContent = '—';
     el.noteName.className = 'idle';
     el.noteSub.textContent = 'raise your left hand';
   } else {
-    el.noteName.textContent = noteName(m);
+    el.noteName.textContent = c.name;
     el.noteName.className = '';
-    el.noteSub.textContent = midiToFreq(m).toFixed(1) + ' Hz · ' + SCALES[state.scale].label;
+    el.noteSub.textContent = c.tones.map(noteName).join(' · ') + '  ·  ' + SCALES[state.scale].label;
   }
   updateLadderActive();
 }
@@ -946,12 +1031,21 @@ function loop(detector, actx){
   }
 
   // ---- left hand -> harmony -----------------------------------------------
+  // Height picks a chord from the progression, not a single note. The vertical
+  // range is split into one band per chord, so a four-chord progression gives
+  // the hand four positions — the same four you would play on a keyboard.
   if (hands.left){
     state.seenLeft = now;
     const y = clamp(fLeftY.filter(1 - hands.left.y, dt), 0, 1);
-    state.leftNote = nearestIn(state.ladder, CFG.baseMidi + y * CFG.rangeSemitones);
+    const n = PROGRESSIONS[state.prog].degrees.length;
+    const idx = clamp(Math.floor(y * n), 0, n - 1);
+    if (idx !== state.chordIndex){
+      state.chordIndex = idx;
+      refreshChord();
+    }
   } else if (now - state.seenLeft > CFG.leftGraceMs){
-    state.leftNote = null;
+    state.chord = null;
+    state.chordIndex = null;
   }
 
   // ---- right hand -> the drop ---------------------------------------------
@@ -1029,7 +1123,7 @@ async function start(){
     seq.start();
     // The scheduler runs on its own timer. Timing never depends on the render
     // loop, so a dropped frame cannot move the beat.
-    setInterval(() => { if (seq) seq.tick(state.bpm, state.energy, state.leftNote); },
+    setInterval(() => { if (seq) seq.tick(state.bpm, state.energy, state.chord); },
                 CFG.lookaheadMs);
 
     // 2. camera
