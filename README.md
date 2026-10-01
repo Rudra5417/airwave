@@ -1,7 +1,18 @@
 # AIRWAVE
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-2dd4f7?style=flat-square)](LICENSE)
+[![Build step: none](https://img.shields.io/badge/build%20step-none-8b5cf6?style=flat-square)](#quick-start)
+[![Dependencies: zero](https://img.shields.io/badge/dependencies-zero-2dd4f7?style=flat-square)](#quick-start)
+[![Source: 1 file](https://img.shields.io/badge/source-1%20file-8b5cf6?style=flat-square)](#whats-implemented)
+[![MediaPipe Hands](https://img.shields.io/badge/MediaPipe-Hands-2dd4f7?style=flat-square)](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker)
+
 **Play music in mid-air.** Your webcam tracks your hand; a scale-locked synthesizer
 turns its position into sound. No install, no build step, no dependencies — one HTML file.
+
+### ▶ [**Try it live**](https://rudra5417.github.io/airwave/)
+
+Runs entirely in your browser. The camera feed never leaves your machine — there is no
+server, no upload, no telemetry.
 
 ```
 hand height      → pitch   (continuous, quantised to a scale)
@@ -18,7 +29,10 @@ residual tracker jitter that would otherwise make every note warble.
 
 ## Quick start
 
-Camera access needs a secure context, so `file://` won't work. Serve the folder:
+**Easiest —** [open the live demo](https://rudra5417.github.io/airwave/). No setup at all.
+
+**Locally —** camera access needs a secure context, so `file://` won't work. Serve the
+folder:
 
 ```bash
 git clone https://github.com/Rudra5417/airwave

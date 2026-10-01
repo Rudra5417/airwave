@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate single-file app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check the module script
+        run: |
+          python3 - <<'EOF'
+          import re, pathlib, sys
+          html = pathlib.Path('index.html').read_text()
+          m = re.search(r'<script type="module">(.*?)</script>', html, re.S)
+          if not m:
+              sys.exit('no <script type="module"> block found in index.html')
+          pathlib.Path('airwave.mjs').write_text(m.group(1))
+          print(f'extracted {len(m.group(1))} chars of JS')
+          EOF
+          node --check airwave.mjs
+          rm -f airwave.mjs
+
+      - name: Assert required files exist
+        run: |
+          missing=0
+          for f in index.html README.md LICENSE docs/sensors.md docs/latency.md; do
+            if [ ! -e "$f" ]; then echo "::error::missing $f"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Assert no local test harness is committed
+        run: |
+          for f in test.html test2.html; do
+            if [ -e "$f" ]; then
+              echo "::error::$f is a local test harness and is gitignored — do not commit it"
+              exit 1
+            fi
+          done
+          echo "ok"
+
+      - name: Assert no credentials are present
+        run: |
+          if grep -rInE "(api[_-]?key|secret|token|password|BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})" \
+               . --exclude-dir=.git --exclude-dir=.github 2>/dev/null; then
+            echo "::error::possible credential committed"
+            exit 1
+          fi
+          echo "clean"
